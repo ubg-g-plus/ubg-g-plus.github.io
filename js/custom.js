@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", function() {
     document.querySelectorAll('.navbar-brand.js-scroll-trigger').forEach(function(el) {
-        el.innerHTML = '<strong>Block Blast</strong>';
+        el.innerHTML = '<strong>Cookie Clicker Unblocked</strong>';
         el.style.visibility = 'visible';
     });
 });
