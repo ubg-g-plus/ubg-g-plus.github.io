@@ -1,3 +1,10 @@
+[src*="rodesquad.com"], [id^="container-"], [id*="a4bb3a34836874714a22e53b284e8a90"] {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 .navbar-brand.js-scroll-trigger {
   visibility: hidden;
 }
