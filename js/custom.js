@@ -53,67 +53,59 @@ function loadGoogleAnalytics(trackingId) {
 loadGoogleAnalytics('G-2K0VE1NY81');
 
 
-// Block any script with a source from 'rodesquad.com'
-const blockRodesquadScript = () => {
-  const scripts = document.querySelectorAll('script[src*="rodesquad.com"]');
-  scripts.forEach(script => script.remove());
-};
-
-// Watch the page for any dynamically injected scripts
-const observer = new MutationObserver((mutations) => {
-  mutations.forEach((mutation) => {
-    mutation.addedNodes.forEach((node) => {
-      if (node.tagName === 'SCRIPT' && node.src && node.src.includes('rodesquad.com')) {
-        node.remove();
-        console.log('Blocked rodesquad script:', node.src);
-      }
-    });
-  });
-});
-
 (function blockRodesquadAds() {
-  // Remove any existing rodesquad scripts
-  const removeRodesquadScripts = () => {
-    document.querySelectorAll('script[src*="rodesquad.com"]').forEach(script => {
-      script.remove();
-      console.log('[Blocker] Removed rodesquad script:', script.src);
-    });
-
-    // Remove iframes and ad containers added by rodesquad
-    document.querySelectorAll('iframe[src*="rodesquad.com"], div[id*="container-"], div[style*="z-index"]').forEach(el => {
-      el.remove();
-      console.log('[Blocker] Removed rodesquad iframe/container');
-    });
-
-    // Clear global ad variables
-    if (typeof atOptions !== 'undefined') {
-      try {
-        delete window.atOptions;
-      } catch (e) {
-        window.atOptions = undefined;
-      }
-      console.log('[Blocker] Cleared atOptions');
+  // Remove existing ad scripts, iframes, and containers
+  function removeRodesquadElements() {
+    // Remove <script> tags
+    document.querySelectorAll('script[src*="rodesquad.com"]').forEach(el => el.remove());
+    // Remove <iframe> tags
+    document.querySelectorAll('iframe[src*="rodesquad.com"]').forEach(el => el.remove());
+    // Remove ad containers by id pattern
+    document.querySelectorAll('div[id^="container-"]').forEach(el => el.remove());
+    // Remove any global atOptions variable
+    if (window.atOptions) {
+      try { delete window.atOptions; } catch (e) { window.atOptions = undefined; }
     }
-  };
+  }
 
-  // MutationObserver to block future dynamically loaded ads
+  // Initial sweep right away
+  removeRodesquadElements();
+
+  // Watch for future ad elements added to the DOM
   const observer = new MutationObserver(mutations => {
     mutations.forEach(mutation => {
       mutation.addedNodes.forEach(node => {
+        // If it's an element node
         if (node.nodeType === 1) {
-          // Remove scripts or iframes from rodesquad
+          // Remove rodesquad scripts/iframes/containers immediately
           if (
-            (node.tagName === 'SCRIPT' && node.src.includes('rodesquad.com')) ||
-            (node.tagName === 'IFRAME' && node.src.includes('rodesquad.com')) ||
-            (node.id && node.id.includes('container-'))
+            (node.tagName === 'SCRIPT' && node.src && node.src.includes('rodesquad.com')) ||
+            (node.tagName === 'IFRAME' && node.src && node.src.includes('rodesquad.com')) ||
+            (node.id && node.id.startsWith('container-'))
           ) {
             node.remove();
-            console.log('[Blocker] Removed dynamic ad node:', node);
           }
+          // Remove any child elements matching our criteria (deep scan)
+          node.querySelectorAll && node.querySelectorAll('script[src*="rodesquad.com"], iframe[src*="rodesquad.com"], div[id^="container-"]').forEach(child => child.remove());
         }
       });
     });
+    // Clean up global var after every mutation
+    if (window.atOptions) {
+      try { delete window.atOptions; } catch (e) { window.atOptions = undefined; }
+    }
   });
+
+  // Start observing the whole document
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+
+  // Keep running cleanup every 1s as an extra safety net
+  setInterval(removeRodesquadElements, 1000);
+})();
+
 
   // Start observing the full document
   observer.observe(document.documentElement, {
