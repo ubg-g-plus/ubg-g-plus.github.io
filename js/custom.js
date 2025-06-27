@@ -56,3 +56,56 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
 
 
 
+(function() {
+    const badScriptPatterns = [
+        /\/\/rodesquad\.com\/.*\/invoke\.js/,
+        /\/\/rodesquad\.com\/.*\.js/
+    ];
+
+    // Intercept dynamically-added scripts
+    const origCreateElement = document.createElement;
+    document.createElement = function(tag) {
+        if (tag.toLowerCase() === "script") {
+            const script = origCreateElement.call(document, tag);
+            const origSetAttribute = script.setAttribute;
+            script.setAttribute = function(attr, value) {
+                if (attr === "src" && badScriptPatterns.some(re => re.test(value))) {
+                    // Block script loading
+                    script.type = "javascript/blocked";
+                    return;
+                }
+                return origSetAttribute.call(this, attr, value);
+            };
+            return script;
+        }
+        return origCreateElement.call(document, tag);
+    };
+
+    // Remove existing rodesquad scripts
+    document.querySelectorAll('script[src*="rodesquad.com"]').forEach(function(script) {
+        script.remove();
+    });
+
+    // Remove injected iframes and containers regularly
+    setInterval(function() {
+        document.querySelectorAll('iframe[src*="rodesquad.com"]').forEach(function(iframe) {
+            iframe.remove();
+        });
+        document.querySelectorAll('[id^="container-"]').forEach(function(div) {
+            if (
+                div.id.match(/^container-(81a1a9eb8a9f65c33ca1b04d79935adb|[a-f0-9]{32})$/)
+            ) {
+                div.remove();
+            }
+        });
+    }, 1000);
+
+    // Clean up on DOM ready, too
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll('script[src*="rodesquad.com"]').forEach(function(script) {
+            script.remove();
+        });
+    });
+})();
+
+
