@@ -124,3 +124,32 @@ const observer = new MutationObserver((mutations) => {
   // Run cleanup right now
   removeRodesquadScripts();
 })();
+
+<script>
+// Block the script from being added to the DOM
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+            if (node.tagName === 'SCRIPT' && node.src.includes("rodesquad.com")) {
+                node.remove(); // Remove the ad script
+                console.log("Blocked ad script from rodesquad.com");
+            }
+        });
+    });
+});
+
+observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+});
+
+// Remove the ad container if it appears
+window.addEventListener('DOMContentLoaded', () => {
+    const adDiv = document.getElementById("container-81a1a9eb8a9f65c33ca1b04d79935adb");
+    if (adDiv) {
+        adDiv.remove();
+        console.log("Removed ad container");
+    }
+});
+</script>
+
