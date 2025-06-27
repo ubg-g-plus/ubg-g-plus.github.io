@@ -125,7 +125,6 @@ const observer = new MutationObserver((mutations) => {
   removeRodesquadScripts();
 })();
 
-<script>
 // Block the script from being added to the DOM
 const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
@@ -151,5 +150,4 @@ window.addEventListener('DOMContentLoaded', () => {
         console.log("Removed ad container");
     }
 });
-</script>
 
