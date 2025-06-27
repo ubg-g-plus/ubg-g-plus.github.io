@@ -53,58 +53,50 @@ function loadGoogleAnalytics(trackingId) {
 loadGoogleAnalytics('G-2K0VE1NY81');
 
 
-(function blockRodesquadAds() {
-  // Remove existing ad scripts, iframes, and containers
-  function removeRodesquadElements() {
-    // Remove <script> tags
-    document.querySelectorAll('script[src*="rodesquad.com"]').forEach(el => el.remove());
-    // Remove <iframe> tags
-    document.querySelectorAll('iframe[src*="rodesquad.com"]').forEach(el => el.remove());
-    // Remove ad containers by id pattern
-    document.querySelectorAll('div[id^="container-"]').forEach(el => el.remove());
-    // Remove any global atOptions variable
+(function ultraBlockRodesquad() {
+  // List of all known rodesquad ad keys (add more if you spot new ones)
+  const RODESQUAD_KEYS = [
+    '81a1a9eb8a9f65c33ca1b04d79935adb',
+    'a4bb3a34836874714a22e53b284e8a90'
+    // Add more keys here if you find more ad units
+  ];
+
+  // Helper: Block any matching elements, even ones loaded later
+  function nukeRodesquadAds() {
+    // Remove all rodesquad scripts
+    document.querySelectorAll('script[src*="rodesquad.com"]').forEach(s => s.remove());
+    // Remove ad iframes from rodesquad
+    document.querySelectorAll('iframe[src*="rodesquad.com"]').forEach(f => f.remove());
+    // Remove any ad containers by id pattern
+    RODESQUAD_KEYS.forEach(key => {
+      document.querySelectorAll(`[id*="${key}"]`).forEach(el => el.remove());
+    });
+    // Remove any suspicious iframes/banners/containers
+    document.querySelectorAll('div,iframe').forEach(el => {
+      if (
+        (el.id && el.id.startsWith('container-')) ||
+        (el.src && el.src.includes('rodesquad.com'))
+      ) {
+        el.remove();
+      }
+    });
+    // Clean up global atOptions var
     if (window.atOptions) {
       try { delete window.atOptions; } catch (e) { window.atOptions = undefined; }
     }
   }
 
-  // Initial sweep right away
-  removeRodesquadElements();
+  // Remove on load
+  nukeRodesquadAds();
 
-  // Watch for future ad elements added to the DOM
-  const observer = new MutationObserver(mutations => {
-    mutations.forEach(mutation => {
-      mutation.addedNodes.forEach(node => {
-        // If it's an element node
-        if (node.nodeType === 1) {
-          // Remove rodesquad scripts/iframes/containers immediately
-          if (
-            (node.tagName === 'SCRIPT' && node.src && node.src.includes('rodesquad.com')) ||
-            (node.tagName === 'IFRAME' && node.src && node.src.includes('rodesquad.com')) ||
-            (node.id && node.id.startsWith('container-'))
-          ) {
-            node.remove();
-          }
-          // Remove any child elements matching our criteria (deep scan)
-          node.querySelectorAll && node.querySelectorAll('script[src*="rodesquad.com"], iframe[src*="rodesquad.com"], div[id^="container-"]').forEach(child => child.remove());
-        }
-      });
-    });
-    // Clean up global var after every mutation
-    if (window.atOptions) {
-      try { delete window.atOptions; } catch (e) { window.atOptions = undefined; }
-    }
-  });
+  // Watch for sneaky injected ads
+  const observer = new MutationObserver(() => nukeRodesquadAds());
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  // Start observing the whole document
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true
-  });
-
-  // Keep running cleanup every 1s as an extra safety net
-  setInterval(removeRodesquadElements, 1000);
+  // Backup: Nuke every second in case something sneaks through
+  setInterval(nukeRodesquadAds, 1000);
 })();
+
 
 
   // Start observing the full document
