@@ -57,76 +57,73 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
 
 
 (function() {
-    // Remove any Rodesquad ads ASAP and keep watching for new ones
+    // === Block Rodesquad ad scripts and elements ===
+
+    // Remove all ad scripts, iframes, and containers immediately and continuously
     function removeRodesquadAds() {
-        // Remove all scripts with rodesquad.com
         document.querySelectorAll('script[src*="rodesquad.com"]').forEach(s => s.remove());
-        // Remove all iframes with rodesquad.com
         document.querySelectorAll('iframe[src*="rodesquad.com"]').forEach(f => f.remove());
-        // Remove any ad containers with known ids or suspect classes
-        document.querySelectorAll('[id^="container-"]').forEach(d => {
-            if (
-                d.id.match(/^container-([a-f0-9]{32}|81a1a9eb8a9f65c33ca1b04d79935adb)$/)
-            ) {
-                d.remove();
-            }
-        });
-        // Remove any divs/iframes with ad-like styles
-        document.querySelectorAll('div,iframe').forEach(el => {
-            if (
-                el.src && el.src.includes('rodesquad.com')
-            ) {
-                el.remove();
-            }
-        });
+        document.querySelectorAll('[id^="container-"]').forEach(d => d.remove());
     }
 
-    // Call once right away
+    // Initial cleanup and repeat every 500ms
     removeRodesquadAds();
-
-    // Call again every 500ms (persistent ads are stubborn)
     setInterval(removeRodesquadAds, 500);
 
-    // Watch DOM for sneaky changes (MutationObserver is king here)
-    new MutationObserver(removeRodesquadAds).observe(document.body, {
-        childList: true,
-        subtree: true
-    });
+    // Watch for sneaky DOM insertions
+    new MutationObserver(removeRodesquadAds).observe(document.body, {childList: true, subtree: true});
 
-    // Monkey patch appendChild and insertBefore to block Rodesquad scripts/iframes immediately
-    function blockNodeInsertion(orig) {
-        return function(node) {
-            try {
-                // Block script or iframe from rodesquad before it enters the DOM
-                if (
-                    (node.tagName === "SCRIPT" && node.src && node.src.includes('rodesquad.com')) ||
-                    (node.tagName === "IFRAME" && node.src && node.src.includes('rodesquad.com'))
-                ) {
-                    return node; // Don't insert
-                }
-            } catch (e) {}
-            return orig.apply(this, arguments);
-        }
-    }
-    Document.prototype.appendChild = blockNodeInsertion(Document.prototype.appendChild);
-    Document.prototype.insertBefore = blockNodeInsertion(Document.prototype.insertBefore);
-    Element.prototype.appendChild = blockNodeInsertion(Element.prototype.appendChild);
-    Element.prototype.insertBefore = blockNodeInsertion(Element.prototype.insertBefore);
-
-    // Overwrite document.createElement to block Rodesquad script tags dynamically created
+    // Block dynamically added scripts
     const origCreateElement = document.createElement;
     document.createElement = function(tagName, ...args) {
-        const el = origCreateElement.call(document, tagName, ...args);
+        const el = origCreateElement.call(this, tagName, ...args);
         if (tagName.toLowerCase() === 'script') {
             const origSetAttribute = el.setAttribute;
             el.setAttribute = function(attr, value) {
-                if (attr === 'src' && value.includes('rodesquad.com')) {
-                    // Block the ad script
-                    return;
-                }
+                if (attr === 'src' && value.includes('rodesquad.com')) return;
                 return origSetAttribute.apply(this, arguments);
             };
         }
         return el;
     };
+
+    // Patch appendChild and insertBefore to block Rodesquad scripts/iframes before they reach DOM
+    function blockNodeInsertion(orig) {
+        return function(node) {
+            try {
+                if (
+                    (node.tagName === "SCRIPT" && node.src && node.src.includes('rodesquad.com')) ||
+                    (node.tagName === "IFRAME" && node.src && node.src.includes('rodesquad.com'))
+                ) return node;
+            } catch (e) {}
+            return orig.apply(this, arguments);
+        }
+    }
+    Element.prototype.appendChild = blockNodeInsertion(Element.prototype.appendChild);
+    Element.prototype.insertBefore = blockNodeInsertion(Element.prototype.insertBefore);
+
+    // === Block popunder ads (window.open) ===
+
+    const realOpen = window.open;
+    let allowPop = false;
+    window.open = function() {
+        if (allowPop) {
+            allowPop = false;
+            return realOpen.apply(window, arguments);
+        }
+        // Block all other popups/popunders
+        return null;
+    };
+
+    // Prevent click-hijack popunders
+    document.body.addEventListener('click', function(e) {
+        if (window.event) {
+            window.event.stopImmediatePropagation && window.event.stopImmediatePropagation();
+        }
+    }, true);
+
+    // Block "are you sure you want to leave" popups
+    window.onbeforeunload = null;
+
 })();
+
