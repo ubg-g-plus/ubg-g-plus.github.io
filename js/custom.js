@@ -56,121 +56,63 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
 
 
 
-// complete-ad-blocker.js - Blocks ALL ads (banners and popunders)
+/*** BEGIN BANNER AD BLOCKING CODE ***/
 (function() {
-    // ======== CONFIGURATION ======== //
-    const adNetworkDomains = [
-        'rodesquad.com'
-    ];
+    // Only run if not already initialized
+    if (window.bannerAdBlockerLoaded) return;
+    window.bannerAdBlockerLoaded = true;
     
-    const adContainerIds = [
-        'container-81a1a9eb8a9f65c33ca1b04d79935adb'
-    ];
-    
-    const adScriptUrls = [
-        '//rodesquad.com/a4bb3a34836874714a22e53b284e8a90/invoke.js',
-        '//rodesquad.com/81a1a9eb8a9f65c33ca1b04d79935adb/invoke.js',
-        '//rodesquad.com/a5db5a14ad99bd991a0c5f619c0e6c82/invoke.js'
+    console.log('Banner ad blocker activated');
+
+    // Specific banner ads to block
+    const adScriptsToBlock = [
+        '//rodesquad.com/a5db5a14ad99bd991a0c5f619c0e6c82/invoke.js',
+        '//rodesquad.com/a4bb3a34836874714a22e53b284e8a90/invoke.js'
     ];
 
-    // ======== CORE BLOCKING FUNCTIONS ======== //
-    
-    // 1. BLOCK SCRIPT LOADING
+    // 1. Block script elements from loading
     const originalAppendChild = Node.prototype.appendChild;
     Node.prototype.appendChild = function(node) {
         if (node.tagName && node.tagName.toLowerCase() === 'script') {
-            if (adScriptUrls.some(url => node.src.includes(url)) || 
-                adNetworkDomains.some(domain => node.src.includes(domain))) {
-                console.log('[AdBlocker] Blocked script:', node.src);
-                return node; // Return the node without appending
+            if (adScriptsToBlock.some(adUrl => node.src && node.src.includes(adUrl))) {
+                console.log('Blocked banner ad script:', node.src);
+                return node; // Don't append
             }
         }
         return originalAppendChild.apply(this, arguments);
     };
 
-    // 2. BLOCK IFRAME CREATION
+    // 2. Neutralize ad configuration
+    if (window.atOptions) {
+        window.atOptions = {};
+        Object.freeze(window.atOptions);
+        console.log('Neutralized atOptions');
+    }
+
+    // 3. Block iframe creation
     const originalCreateElement = document.createElement;
     document.createElement = function(tagName) {
         if (tagName.toLowerCase() === 'iframe') {
-            console.log('[AdBlocker] Blocked iframe creation');
+            console.log('Blocked iframe creation for ads');
             return null;
         }
         return originalCreateElement.apply(document, arguments);
     };
 
-    // 3. BLOCK POPUNDERS
-    window.open = function() {
-        console.log('[AdBlocker] Blocked window.open popunder');
-        return null;
-    };
-
-    // 4. REMOVE AD CONTAINERS
-    function removeAdElements() {
-        // Remove by specific IDs
-        adContainerIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.remove();
-                console.log('[AdBlocker] Removed ad container:', id);
-            }
-        });
-
-        // Remove by domain patterns
-        document.querySelectorAll('script, iframe, div, img').forEach(el => {
-            if (el.src && adNetworkDomains.some(domain => el.src.includes(domain))) {
-                el.remove();
-                console.log('[AdBlocker] Removed ad element by src:', el.src);
-            }
-            
-            if (el.id && el.id.includes('container-')) {
-                el.remove();
-                console.log('[AdBlocker] Removed generic ad container:', el.id);
-            }
+    // 4. Remove existing ads
+    function removeExistingBannerAds() {
+        adScriptsToBlock.forEach(scriptUrl => {
+            const domain = scriptUrl.split('/')[2];
+            // Remove script elements
+            document.querySelectorAll(`script[src*="${domain}"]`).forEach(el => el.remove());
+            // Remove any iframes that got through
+            document.querySelectorAll(`iframe[src*="${domain}"]`).forEach(el => el.remove());
         });
     }
 
-    // 5. BLOCK DYNAMIC AD INJECTION
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            mutation.addedNodes.forEach(function(node) {
-                if (node.nodeType === 1) { // Element node
-                    if (node.tagName === 'SCRIPT' && 
-                        (adScriptUrls.some(url => node.src.includes(url)) || 
-                         adNetworkDomains.some(domain => node.src.includes(domain)))) {
-                        node.remove();
-                        console.log('[AdBlocker] Blocked dynamically injected ad script');
-                    }
-                }
-            });
-        });
-    });
-
-    // ======== INITIALIZATION ======== //
-    
-    // Run immediately
-    removeAdElements();
-    
-    // Run after DOM loads
-    document.addEventListener('DOMContentLoaded', removeAdElements);
-    window.addEventListener('load', removeAdElements);
-    
-    // Start observing for dynamic content
-    observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true
-    });
-
-    // Block document.write injections
-    document.write = function(content) {
-        if (adNetworkDomains.some(domain => content.includes(domain))) {
-            console.log('[AdBlocker] Blocked document.write injection');
-            return;
-        }
-        // Fallback to original for non-ad content
-        (function(original) {
-            original.apply(document, arguments);
-        })(document.write.bind(document));
-    };
-
-    console.log('[AdBlocker] Activated - All ads will be blocked');
+    // Run immediately and on DOM load
+    removeExistingBannerAds();
+    document.addEventListener('DOMContentLoaded', removeExistingBannerAds);
+    window.addEventListener('load', removeExistingBannerAds);
 })();
+/*** END BANNER AD BLOCKING CODE ***/
