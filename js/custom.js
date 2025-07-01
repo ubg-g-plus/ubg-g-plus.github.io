@@ -56,156 +56,42 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
 
 
 
-/*** BEGIN BANNER AD BLOCKING CODE ***/
 (function() {
-    // Only run if not already initialized
-    if (window.bannerAdBlockerLoaded) return;
-    window.bannerAdBlockerLoaded = true;
-    
-    console.log('Banner ad blocker activated');
-
-    // Specific banner ads to block
-    const adScriptsToBlock = [
-        '//rodesquad.com/a5db5a14ad99bd991a0c5f619c0e6c82/invoke.js',
-        '//rodesquad.com/a4bb3a34836874714a22e53b284e8a90/invoke.js'
-    ];
-
-    // 1. Block script elements from loading
-    const originalAppendChild = Node.prototype.appendChild;
-    Node.prototype.appendChild = function(node) {
-        if (node.tagName && node.tagName.toLowerCase() === 'script') {
-            if (adScriptsToBlock.some(adUrl => node.src && node.src.includes(adUrl))) {
-                console.log('Blocked banner ad script:', node.src);
-                return node; // Don't append
-            }
-        }
-        return originalAppendChild.apply(this, arguments);
-    };
-
-    // 2. Neutralize ad configuration
-    if (window.atOptions) {
-        window.atOptions = {};
-        Object.freeze(window.atOptions);
-        console.log('Neutralized atOptions');
-    }
-
-    // 3. Block iframe creation
-    const originalCreateElement = document.createElement;
-    document.createElement = function(tagName) {
-        if (tagName.toLowerCase() === 'iframe') {
-            console.log('Blocked iframe creation for ads');
-            return null;
-        }
-        return originalCreateElement.apply(document, arguments);
-    };
-
-    // 4. Remove existing ads
-    function removeExistingBannerAds() {
-        adScriptsToBlock.forEach(scriptUrl => {
-            const domain = scriptUrl.split('/')[2];
-            // Remove script elements
-            document.querySelectorAll(`script[src*="${domain}"]`).forEach(el => el.remove());
-            // Remove any iframes that got through
-            document.querySelectorAll(`iframe[src*="${domain}"]`).forEach(el => el.remove());
+    // Remove all Rodesquad ad scripts, iframes, and containers regularly
+    function removeRodesquadAds() {
+        // Remove scripts from rodesquad
+        document.querySelectorAll('script[src*="rodesquad.com"]').forEach(s => s.remove());
+        // Remove iframes from rodesquad
+        document.querySelectorAll('iframe[src*="rodesquad.com"]').forEach(f => f.remove());
+        // Remove div containers used by these ads
+        document.querySelectorAll('[id^="container-"]').forEach(d => d.remove());
+        // Remove any remaining iframes/divs that slipped through
+        document.querySelectorAll('div,iframe').forEach(el => {
+            if (el.src && el.src.includes('rodesquad.com')) el.remove();
         });
     }
 
-    // Run immediately and on DOM load
-    removeExistingBannerAds();
-    document.addEventListener('DOMContentLoaded', removeExistingBannerAds);
-    window.addEventListener('load', removeExistingBannerAds);
-})();
-/*** END BANNER AD BLOCKING CODE ***/
+    // Run on page load and every 300ms after
+    removeRodesquadAds();
+    setInterval(removeRodesquadAds, 300);
 
-
-/*** BEGIN POPUNDER AD BLOCKING CODE ***/
-(function() {
-    // Only run if not already initialized
-    if (window.popunderBlockerLoaded) return;
-    window.popunderBlockerLoaded = true;
-    
-    console.log('Popunder blocker activated');
-
-    // Specific popunder elements to block
-    const popunderScript = '//rodesquad.com/81a1a9eb8a9f65c33ca1b04d79935adb/invoke.js';
-    const popunderContainerId = 'container-81a1a9eb8a9f65c33ca1b04d79935adb';
-
-    // 1. Block the popunder script from loading
-    const originalAppendChild = Node.prototype.appendChild;
-    Node.prototype.appendChild = function(node) {
-        if (node.tagName && node.tagName.toLowerCase() === 'script') {
-            if (node.src && node.src.includes(popunderScript)) {
-                console.log('Blocked popunder script:', node.src);
-                return node; // Prevent appending
-            }
-        }
-        return originalAppendChild.apply(this, arguments);
-    };
-
-    // 2. Block window.open (common popunder method)
-    const originalWindowOpen = window.open;
-    window.open = function(url, target, features) {
-        if (url && url.includes('rodesquad.com')) {
-            console.log('Blocked popunder window.open attempt');
-            return null;
-        }
-        return originalWindowOpen.apply(this, arguments);
-    };
-
-    // 3. Block click-based popunders
-    document.addEventListener('click', function(e) {
-        const el = e.target.closest('a, button, div');
-        if (el && (el.href && el.href.includes('rodesquad.com') || 
-                  (el.onclick && el.onclick.toString().includes('rodesquad.com')) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            console.log('Blocked potential popunder click');
-        }
-    }, true);
-
-    // 4. Remove existing popunder elements
-    function removeExistingPopunder() {
-        // Remove script element
-        document.querySelectorAll(`script[src*="${popunderScript.split('/')[2]}"]`)
-            .forEach(el => el.remove());
-        
-        // Remove container div
-        const container = document.getElementById(popunderContainerId);
-        if (container) {
-            container.remove();
-            console.log('Removed popunder container');
-        }
+    // Use MutationObserver to catch anything loaded dynamically
+    if (window.MutationObserver) {
+        new MutationObserver(removeRodesquadAds)
+          .observe(document.documentElement, {childList:true, subtree:true});
     }
 
-    // 5. Continuous monitoring for new popunder elements
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            mutation.addedNodes.forEach(function(node) {
-                if (node.nodeType === 1) { // Element node
-                    if (node.id === popunderContainerId) {
-                        node.remove();
-                        console.log('Blocked dynamically added popunder container');
-                    }
-                    if (node.src && node.src.includes(popunderScript)) {
-                        node.remove();
-                        console.log('Blocked dynamically added popunder script');
-                    }
-                }
-            });
-        });
-    });
+    // Block window.open (popunders)
+    const realOpen = window.open;
+    window.open = function() { return null; };
 
-    // Run immediately
-    removeExistingPopunder();
-    
-    // Run after DOM loads
-    document.addEventListener('DOMContentLoaded', removeExistingPopunder);
-    window.addEventListener('load', removeExistingPopunder);
-    
-    // Start observing
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
+    // Block direct location changes to ad URLs
+    const realAssign = window.location.assign;
+    window.location.assign = function(url) {
+        if (typeof url === "string" && url.includes("rodesquad.com")) return;
+        return realAssign.apply(this, arguments);
+    };
+
+    // Bonus: Block "onbeforeunload" popups
+    window.onbeforeunload = null;
 })();
-/*** END POPUNDER AD BLOCKING CODE ***/
