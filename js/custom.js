@@ -56,74 +56,65 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
 
 
 
+// disable-ads.js - This will prevent all specified ad scripts from loading
 (function() {
-    // === Block Rodesquad ad scripts and elements ===
-
-    // Remove all ad scripts, iframes, and containers immediately and continuously
-    function removeRodesquadAds() {
-        document.querySelectorAll('script[src*="rodesquad.com"]').forEach(s => s.remove());
-        document.querySelectorAll('iframe[src*="rodesquad.com"]').forEach(f => f.remove());
-        document.querySelectorAll('[id^="container-"]').forEach(d => d.remove());
-    }
-
-    // Initial cleanup and repeat every 500ms
-    removeRodesquadAds();
-    setInterval(removeRodesquadAds, 500);
-
-    // Watch for sneaky DOM insertions
-    new MutationObserver(removeRodesquadAds).observe(document.body, {childList: true, subtree: true});
-
-    // Block dynamically added scripts
-    const origCreateElement = document.createElement;
-    document.createElement = function(tagName, ...args) {
-        const el = origCreateElement.call(this, tagName, ...args);
-        if (tagName.toLowerCase() === 'script') {
-            const origSetAttribute = el.setAttribute;
-            el.setAttribute = function(attr, value) {
-                if (attr === 'src' && value.includes('rodesquad.com')) return;
-                return origSetAttribute.apply(this, arguments);
-            };
+    // List of ad script URLs to block
+    const blockedScripts = [
+        '//rodesquad.com/a4bb3a34836874714a22e53b284e8a90/invoke.js',
+        '//rodesquad.com/81a1a9eb8a9f65c33ca1b04d79935adb/invoke.js',
+        '//rodesquad.com/a5db5a14ad99bd991a0c5f619c0e6c82/invoke.js'
+    ];
+    
+    // List of ad container IDs to remove
+    const adContainerIds = [
+        'container-81a1a9eb8a9f65c33ca1b04d79935adb'
+    ];
+    
+    // Override document.createElement to prevent iframe creation
+    const originalCreateElement = document.createElement;
+    document.createElement = function(tagName) {
+        if (tagName.toLowerCase() === 'iframe') {
+            console.log('Blocked iframe creation for ads');
+            return null;
         }
-        return el;
+        return originalCreateElement.apply(document, arguments);
     };
-
-    // Patch appendChild and insertBefore to block Rodesquad scripts/iframes before they reach DOM
-    function blockNodeInsertion(orig) {
-        return function(node) {
-            try {
-                if (
-                    (node.tagName === "SCRIPT" && node.src && node.src.includes('rodesquad.com')) ||
-                    (node.tagName === "IFRAME" && node.src && node.src.includes('rodesquad.com'))
-                ) return node;
-            } catch (e) {}
-            return orig.apply(this, arguments);
+    
+    // Override document.write to prevent ad injection
+    const originalWrite = document.write;
+    document.write = function(content) {
+        if (blockedScripts.some(script => content.includes(script))) {
+            console.log('Blocked ad script injection');
+            return;
         }
-    }
-    Element.prototype.appendChild = blockNodeInsertion(Element.prototype.appendChild);
-    Element.prototype.insertBefore = blockNodeInsertion(Element.prototype.insertBefore);
-
-    // === Block popunder ads (window.open) ===
-
-    const realOpen = window.open;
-    let allowPop = false;
-    window.open = function() {
-        if (allowPop) {
-            allowPop = false;
-            return realOpen.apply(window, arguments);
-        }
-        // Block all other popups/popunders
-        return null;
+        originalWrite.apply(document, arguments);
     };
-
-    // Prevent click-hijack popunders
-    document.body.addEventListener('click', function(e) {
-        if (window.event) {
-            window.event.stopImmediatePropagation && window.event.stopImmediatePropagation();
+    
+    // Remove ad containers if they exist
+    function removeAdContainers() {
+        adContainerIds.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.remove();
+                console.log('Removed ad container:', id);
+            }
+        });
+    }
+    
+    // Run immediately and also after DOM loads
+    removeAdContainers();
+    document.addEventListener('DOMContentLoaded', removeAdContainers);
+    window.addEventListener('load', removeAdContainers);
+    
+    // Block script elements from loading
+    const originalAppendChild = Node.prototype.appendChild;
+    Node.prototype.appendChild = function(node) {
+        if (node.tagName && node.tagName.toLowerCase() === 'script') {
+            if (blockedScripts.some(script => node.src.includes(script))) {
+                console.log('Blocked ad script:', node.src);
+                return node;
+            }
         }
-    }, true);
-
-    // Block "are you sure you want to leave" popups
-    window.onbeforeunload = null;
-
+        return originalAppendChild.apply(this, arguments);
+    };
 })();
-
