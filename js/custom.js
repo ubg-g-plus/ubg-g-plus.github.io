@@ -56,9 +56,8 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
 
 
 
-// disable-ads.js - This will prevent all specified ad scripts from loading
 (function() {
-    // List of ad script URLs to block
+    // List of all ad script URLs to block (including popunders)
     const blockedScripts = [
         '//rodesquad.com/a4bb3a34836874714a22e53b284e8a90/invoke.js',
         '//rodesquad.com/81a1a9eb8a9f65c33ca1b04d79935adb/invoke.js',
@@ -70,6 +69,35 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
         'container-81a1a9eb8a9f65c33ca1b04d79935adb'
     ];
     
+    // ======== POPUNDER SPECIFIC PROTECTION ======== //
+    // Block window.open calls used for popunders
+    const originalWindowOpen = window.open;
+    window.open = function(url, target, features) {
+        // Block any popunder attempts
+        if (url.includes('rodesquad.com') || 
+            target === '_blank' || 
+            features && features.includes('hidden')) {
+            console.log('Blocked popunder attempt:', url);
+            return null;
+        }
+        return originalWindowOpen.apply(window, arguments);
+    };
+    
+    // Block click events that might trigger popunders
+    document.addEventListener('click', function(e) {
+        const element = e.target.closest('a, button, div');
+        if (element && (
+            element.href && element.href.includes('rodesquad.com') ||
+            element.getAttribute('onclick') && element.getAttribute('onclick').includes('rodesquad.com')
+        )) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            console.log('Blocked potential popunder click');
+            return false;
+        }
+    }, true);
+    
+    // ======== GENERAL AD BLOCKING ======== //
     // Override document.createElement to prevent iframe creation
     const originalCreateElement = document.createElement;
     document.createElement = function(tagName) {
@@ -99,12 +127,10 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
                 console.log('Removed ad container:', id);
             }
         });
+        
+        // Additional cleanup for any dynamically created popunder elements
+        document.querySelectorAll('[id*="rodesquad"], [class*="rodesquad"]').forEach(el => el.remove());
     }
-    
-    // Run immediately and also after DOM loads
-    removeAdContainers();
-    document.addEventListener('DOMContentLoaded', removeAdContainers);
-    window.addEventListener('load', removeAdContainers);
     
     // Block script elements from loading
     const originalAppendChild = Node.prototype.appendChild;
@@ -113,6 +139,30 @@ loadGoogleAnalytics('G-PWQ3YQT32E');
             if (blockedScripts.some(script => node.src.includes(script))) {
                 console.log('Blocked ad script:', node.src);
                 return node;
+            }
+        }
+        return originalAppendChild.apply(this, arguments);
+    };
+    
+    // Run immediately and also after DOM loads
+    removeAdContainers();
+    document.addEventListener('DOMContentLoaded', removeAdContainers);
+    window.addEventListener('load', removeAdContainers);
+    
+    // Continuous monitoring for new ad elements
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes) {
+                removeAdContainers();
+            }
+        });
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+})();
             }
         }
         return originalAppendChild.apply(this, arguments);
